@@ -63,6 +63,37 @@
       </tbody>
     </table>
 
+    <section class="linked-block">
+      <h3>结构沉降超限预警 · 值班待办（与检修清单对账）</h3>
+      <p class="page-desc">超限断面整组提交时同步生成值班待办；检修安排/完工后这里状态联动，两边条数对得上。</p>
+      <table class="data-table">
+        <thead>
+          <tr><th>待办编号</th><th>监测断面</th><th>监测日期</th><th>事项</th><th>关联检修</th><th>状态</th><th>操作</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="todo in warningTodos" :key="todo.id">
+            <td>{{ todo.待办编号 }}</td>
+            <td>{{ todo.监测断面 }}</td>
+            <td>{{ todo.监测日期 }}</td>
+            <td>{{ todo.事项 }}</td>
+            <td>{{ todo.检修编号 }}</td>
+            <td><span class="tag" :class="todo.status === '待办' ? 'fail' : 'ok'">{{ todo.status }}</span></td>
+            <td class="row-actions">
+              <button v-if="todo.status === '待办'" class="link" type="button" @click="doSettle(todo.id)">办结待办</button>
+            </td>
+          </tr>
+          <tr v-if="!warningTodos.length">
+            <td colspan="7" class="empty-state">暂无沉降预警值班待办</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="reconcile" :class="{ ok: reconcile.reconciled, bad: !reconcile.reconciled }">
+        对账：未办结检修在办 {{ reconcile.pendingMaintenance }} ＝ 值班待办
+        {{ reconcile.pendingDuty }}（新口径累计超限 {{ reconcile.warningByNew }}）——
+        {{ reconcile.reconciled ? '与值班台账对得上 ✔' : '对不上，请核查 ✘' }}
+      </p>
+    </section>
+
     <footer class="page-foot">
       <span>共 {{ total }} 条运维值班交接记录</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
@@ -79,6 +110,12 @@ import {
   moduleMeta,
   runAction as applyAction,
 } from '@/api/local-service'
+import {
+  listDutyTodos,
+  settleDutyTodo,
+  settlementSummary,
+} from '@/api/settlement-service'
+import type { DutyTodo } from '@/data/settlement/types'
 import type { EntryRow } from '@/data/types'
 
 const meta = moduleMeta('duty')
@@ -133,5 +170,21 @@ function reload() {
   }
 }
 
-onMounted(reload)
+const warningTodos = ref<DutyTodo[]>([])
+const reconcile = ref(settlementSummary())
+
+function loadWarningTodos() {
+  warningTodos.value = listDutyTodos()
+  reconcile.value = settlementSummary()
+}
+
+function doSettle(id: number) {
+  settleDutyTodo(id)
+  loadWarningTodos()
+}
+
+onMounted(() => {
+  reload()
+  loadWarningTodos()
+})
 </script>

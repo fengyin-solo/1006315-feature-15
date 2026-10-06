@@ -63,6 +63,35 @@
       </tbody>
     </table>
 
+    <section class="linked-block">
+      <h3>结构沉降超限预警回写 · 待安排检修</h3>
+      <p class="page-desc">超过预警阈值的断面，整组提交时自动排进本清单；安排班组或完工后，值班台账待办同步更新。</p>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>检修编号</th><th>检修对象</th><th>检修类别</th><th>预警结论</th><th>检修班组</th><th>状态</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="item in warningTodos" :key="item.id">
+            <td>{{ item.检修编号 }}</td>
+            <td>{{ item.检修对象 }}</td>
+            <td>{{ item.检修类别 }}</td>
+            <td>{{ item.预警结论 }}</td>
+            <td>{{ item.检修班组 }}</td>
+            <td><span class="tag" :class="item.status === '待安排' ? 'fail' : 'ok'">{{ item.status }}</span></td>
+            <td class="row-actions">
+              <button v-if="item.status === '待安排'" class="link" type="button" @click="doArrange(item.id)">安排检修班组</button>
+              <button v-if="item.status !== '已完工'" class="link" type="button" @click="doComplete(item.id)">确认完工</button>
+            </td>
+          </tr>
+          <tr v-if="!warningTodos.length">
+            <td colspan="7" class="empty-state">暂无沉降超限触发的待安排检修</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
     <footer class="page-foot">
       <span>共 {{ total }} 条设施检修管理记录</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
@@ -79,6 +108,12 @@ import {
   moduleMeta,
   runAction as applyAction,
 } from '@/api/local-service'
+import {
+  arrangeMaintenance,
+  completeMaintenance,
+  listMaintenanceTodos,
+} from '@/api/settlement-service'
+import type { MaintenanceTodo } from '@/data/settlement/types'
 import type { EntryRow } from '@/data/types'
 
 const meta = moduleMeta('maintenance')
@@ -133,5 +168,24 @@ function reload() {
   }
 }
 
-onMounted(reload)
+const warningTodos = ref<MaintenanceTodo[]>([])
+
+function loadWarningTodos() {
+  warningTodos.value = listMaintenanceTodos()
+}
+
+function doArrange(id: number) {
+  arrangeMaintenance(id)
+  loadWarningTodos()
+}
+
+function doComplete(id: number) {
+  completeMaintenance(id)
+  loadWarningTodos()
+}
+
+onMounted(() => {
+  reload()
+  loadWarningTodos()
+})
 </script>
