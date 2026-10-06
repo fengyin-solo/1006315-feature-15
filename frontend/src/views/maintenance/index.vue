@@ -11,6 +11,13 @@
       </div>
     </header>
 
+    <div v-if="settlementWaiting.length" class="notice-bar">
+      结构沉降超限预警已排进本清单 {{ settlementWaiting.length }} 条「待安排」，请优先安排班组开工：
+      <span v-for="row in settlementWaiting" :key="String(row.id)" class="notice-chip">
+        {{ row.检修对象 }}（来源测次 {{ row.来源测次 }}，{{ row.预警结论 }}）
+      </span>
+    </div>
+
     <div class="stat-row">
       <article v-for="item in stats" :key="item.label" class="stat-card">
         <span class="stat-label">{{ item.label }}</span>
@@ -42,7 +49,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="row in rows" :key="String(row.id)">
+        <tr v-for="row in rows" :key="String(row.id)" :class="{ 'row-waiting': row.检修类别 === '沉降超限预警' && row.status === '待安排' }">
           <td v-for="column in columns" :key="column">{{ row[column] ?? '—' }}</td>
           <td>{{ row.status }}</td>
           <td class="row-actions">
@@ -79,16 +86,18 @@ import {
   moduleMeta,
   runAction as applyAction,
 } from '@/api/local-service'
+import { settlementWaitingTodos } from '@/api/local-settlement'
 import type { EntryRow } from '@/data/types'
 
 const meta = moduleMeta('maintenance')
-const columns = ["检修编号", "检修对象", "检修类别", "检修班组", "计划工期", "完工日期", "更换部件", "检修状态"]
-const actions = ["提交开工", "确认完工", "申请延期"]
-const statuses = ["待开工", "检修中", "已完工", "已延期"]
+const columns = ["检修编号", "检修对象", "检修类别", "检修班组", "计划工期", "完工日期", "更换部件", "检修状态", "来源批次"]
+const actions = ["安排开工", "确认完工", "申请延期"]
+const statuses = ["待安排", "待开工", "检修中", "已完工", "已延期"]
 const stats = [{"label": "待开工检修", "value": 0}, {"label": "检修中记录", "value": 0}, {"label": "本月完工数", "value": 0}]
 
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
+const settlementWaiting = ref<EntryRow[]>([])
 const errorMessage = ref('')
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
@@ -128,6 +137,7 @@ function reload() {
     const payload = listEntries(meta.key, filters.value)
     rows.value = payload.items
     total.value = payload.total
+    settlementWaiting.value = settlementWaitingTodos()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '设施检修管理列表读取失败'
   }
@@ -135,3 +145,9 @@ function reload() {
 
 onMounted(reload)
 </script>
+
+<style scoped>
+.notice-bar { background: #fef3f2; border: 1px solid #fecdca; color: #b42318; border-radius: 8px; padding: 8px 12px; font-size: 13px; margin-bottom: 12px; }
+.notice-chip { background: #fff; border-radius: 999px; padding: 2px 10px; margin-left: 8px; font-size: 12px; display: inline-block; margin-top: 4px; }
+.row-waiting { background: #fffaeb; }
+</style>
